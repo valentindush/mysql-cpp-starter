@@ -5,7 +5,7 @@ Using MYSQL in C++ using MYSQL-CPP-CONN package (vcpkg package manager)
 
 ### Prerequisites
 1. [Mingw (C/C++ compiler and debugger)](https://www.mingw-w64.org/)
-2. [Visual Studio C++ tools](https://visualstudio.microsoft.com/downloads/)
+2. [Visual Studio C++ tools](https://visualstudio.microsoft.com/downloads/) [Desktop apps with C++ workload is required]
 3. [CMake](https://cmake.org/download/)
 4. [vcpkg](https://vcpkg.io)
 

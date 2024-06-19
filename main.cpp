@@ -1,106 +1,121 @@
-#include <iostream>
 #include <mysqlx/xdevapi.h>
+#include <iostream>
+#include <string>
 
-using ::std::cout;
-using ::std::endl;
-using namespace ::mysqlx;
+// MySQL connection details
+const std::string HOST = "localhost";
+const unsigned int PORT = 33060;
+const std::string USER = "root";
+const std::string PASSWORD = "1234";
+const std::string SCHEMA = "school";
 
-
-int main(int argc, const char* argv[])
-try {
-
-  const char   *url = (argc > 1 ? argv[1] : "mysqlx://root@127.0.0.1");
-
-  cout << "Creating session on " << url
-       << " ..." << endl;
-
-  Session sess(url);
-
-  cout <<"Session accepted, creating collection..." <<endl;
-
-  Schema sch= sess.getSchema("test");
-  Collection coll= sch.createCollection("c1", true);
-
-  cout <<"Inserting documents..." <<endl;
-
-  coll.remove("true").execute();
-
-  {
-    DbDoc doc(R"({ "name": "foo", "age": 1 })");
-
-    Result add =
-      coll.add(doc)
-          .add(R"({ "name": "bar", "age": 2, "toys": [ "car", "ball" ] })")
-          .add(R"({ "name": "bar", "age": 2, "toys": [ "car", "ball" ] })")
-          .add(R"({
-                 "name": "baz",
-                  "age": 3,
-                 "date": { "day": 20, "month": "Apr" }
-              })")
-          .add(R"({ "_id": "myuuid-1", "name": "foo", "age": 7 })")
-          .execute();
-
-    std::list<string> ids = add.getGeneratedIds();
-    for (string id : ids)
-      cout <<"- added doc with id: " << id <<endl;
-  }
-
-  cout <<"Fetching documents..." <<endl;
-
-  DocResult docs = coll.find("age > 1 and name like 'ba%'").execute();
-
-  int i = 0;
-  for (DbDoc doc : docs)
-  {
-    cout <<"doc#" <<i++ <<": " <<doc <<endl;
-
-    for (Field fld : doc)
-    {
-      cout << " field `" << fld << "`: " <<doc[fld] << endl;
-    }
-
-    string name = doc["name"];
-    cout << " name: " << name << endl;
-
-    if (doc.hasField("date") && Value::DOCUMENT == doc.fieldType("date"))
-    {
-      cout << "- date field" << endl;
-      DbDoc date = doc["date"];
-      for (Field fld : date)
-      {
-        cout << "  date `" << fld << "`: " << date[fld] << endl;
-      }
-      string month = doc["date"]["month"];
-      int day = date["day"];
-      cout << "  month: " << month << endl;
-      cout << "  day: " << day << endl;
-    }
-
-    if (doc.hasField("toys") && Value::ARRAY == doc.fieldType("toys"))
-    {
-      cout << "- toys:" << endl;
-      for (auto toy : doc["toys"])
-      {
-        cout << "  " << toy << endl;
-      }
-    }
-
-    cout << endl;
-  }
-  cout <<"Done!" <<endl;
+// Function to create a session
+mysqlx::Session getSession() {
+    return mysqlx::Session(HOST, PORT, USER, PASSWORD);
 }
-catch (const mysqlx::Error &err)
-{
-  cout <<"ERROR: " <<err <<endl;
-  return 1;
+
+// Function to create the schema if it does not exist
+void createSchema(mysqlx::Session& session, const std::string& schemaName) {
+    session.sql("CREATE DATABASE IF NOT EXISTS " + schemaName).execute();
+    session.sql("USE " + schemaName).execute();
 }
-catch (std::exception &ex)
-{
-  cout <<"STD EXCEPTION: " <<ex.what() <<endl;
-  return 1;
+
+// Function to create the student table
+void createStudentTable() {
+    try {
+        mysqlx::Session session = getSession();
+        createSchema(session, SCHEMA);
+
+        // Execute a SQL command to create the student table
+        session.sql("CREATE TABLE IF NOT EXISTS student ("
+                    "id INT AUTO_INCREMENT PRIMARY KEY, "
+                    "name VARCHAR(100), "
+                    "age INT, "
+                    "major VARCHAR(50)"
+                    ")").execute();
+
+        std::cout << "Student table created successfully." << std::endl;
+        session.close();
+    } catch (const mysqlx::Error &err) {
+        std::cerr << "ERROR: " << err.what() << std::endl;
+    }
 }
-catch (const char *ex)
-{
-  cout <<"EXCEPTION: " <<ex <<endl;
-  return 1;
+
+// Function to insert a student into the student table
+void insertStudent(const std::string &name, int age, const std::string &major) {
+    try {
+        mysqlx::Session session = getSession();
+        session.sql("USE " + SCHEMA).execute();
+        mysqlx::Table table = session.getSchema(SCHEMA).getTable("student");
+
+        table.insert("name", "age", "major").values(name, age, major).execute();
+
+        std::cout << "Student inserted successfully." << std::endl;
+        session.close();
+    } catch (const mysqlx::Error &err) {
+        std::cerr << "ERROR: " << err.what() << std::endl;
+    }
+}
+
+// Function to get all students
+void getAllStudents() {
+    try {
+        mysqlx::Session session = getSession();
+        session.sql("USE " + SCHEMA).execute();
+        mysqlx::Table table = session.getSchema(SCHEMA).getTable("student");
+
+        mysqlx::RowResult result = table.select("id", "name", "age", "major").execute();
+
+        for (mysqlx::Row row : result) {
+            std::cout << "ID: " << row[0] << ", Name: " << row[1]
+                      << ", Age: " << row[2] << ", Major: " << row[3] << std::endl;
+        }
+
+        session.close();
+    } catch (const mysqlx::Error &err) {
+        std::cerr << "ERROR: " << err.what() << std::endl;
+    }
+}
+
+// Function to get a student by ID
+void getStudentById(int id) {
+    try {
+        mysqlx::Session session = getSession();
+        session.sql("USE " + SCHEMA).execute();
+        mysqlx::Table table = session.getSchema(SCHEMA).getTable("student");
+
+        mysqlx::RowResult result = table.select("id", "name", "age", "major")
+                                        .where("id = :id")
+                                        .bind("id", id)
+                                        .execute();
+
+        if (mysqlx::Row row = result.fetchOne()) {
+            std::cout << "ID: " << row[0] << ", Name: " << row[1]
+                      << ", Age: " << row[2] << ", Major: " << row[3] << std::endl;
+        } else {
+            std::cout << "Student with ID " << id << " not found." << std::endl;
+        }
+
+        session.close();
+    } catch (const mysqlx::Error &err) {
+        std::cerr << "ERROR: " << err.what() << std::endl;
+    }
+}
+
+// Main function to demonstrate the usage of the above functions
+int main() {
+    // Create the student table
+    createStudentTable();
+
+    // Insert some students
+    insertStudent("Alice", 20, "Computer Science");
+    insertStudent("Bob", 22, "Mathematics");
+
+    // Get all students
+    getAllStudents();
+
+    // Get a student by ID
+    getStudentById(1);
+
+    return 0;
 }

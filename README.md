@@ -13,6 +13,17 @@ Clone this repo
 ```bash
 git clone <this repo>.git
 ```
+
+Add the [mingw, cmake and vcpkg] into path **[skip this part if mingw, vcpkg and cmake are in path already]**
+if you are using Clion add the following into the path
+```
+C:\Program Files\JetBrains\CLion 2024.1.2\bin\mingw
+C:\Program Files\JetBrains\CLion 2024.1.2\bin\cmake\win\x64\bin
+C:\Users\User\.vcpkg-clion\vcpkg
+```
+
+Replace **User** with your PC **username**
+
 Install packages
 
 ```bash
